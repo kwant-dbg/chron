@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.10)
+project(TemporalPathfinder)
+find_package(OpenMP REQUIRED)
+add_executable(TemporalPathfinder main.cpp Raptor.cpp)
+target_link_libraries(TemporalPathfinder PUBLIC OpenMP::OpenMP_CXX)
+set_target_properties(TemporalPathfinder PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)

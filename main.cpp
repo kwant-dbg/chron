@@ -16,7 +16,7 @@ void load_data(const string& dir,
     robin_hood::unordered_map<string, vector<StopTime>>& trips,
     robin_hood::unordered_map<int, vector<Transfer>>& transfers,
     robin_hood::unordered_map<int, vector<string>>& routes_at_stop,
-    robin_hood::unordered_map<string, int>& stop_name_to_id) {
+    robin_hood::unordered_map<string, int>& name_to_id) {
 
     ifstream stops_file(dir + "/stops.txt");
     string line;
@@ -31,7 +31,7 @@ void load_data(const string& dir,
         getline(ss, field, ','); s.lat = stod(field);
         getline(ss, field, ','); s.lon = stod(field);
         stops[s.id] = s;
-        stop_name_to_id[s.name] = s.id;
+        name_to_id[s.name] = s.id;
     }
 
     ifstream stop_times_file(dir + "/stop_times.txt");
@@ -40,21 +40,21 @@ void load_data(const string& dir,
         stringstream ss(line);
         string field;
         StopTime st;
-        getline(ss, field, ','); st.trip_id = field;
-        getline(ss, field, ':'); st.arrival_time.h = stoi(field);
-        getline(ss, field, ':'); st.arrival_time.m = stoi(field);
-        getline(ss, field, ','); st.arrival_time.s = stoi(field);
-        getline(ss, field, ':'); st.departure_time.h = stoi(field);
-        getline(ss, field, ':'); st.departure_time.m = stoi(field);
-        getline(ss, field, ','); st.departure_time.s = stoi(field);
-        getline(ss, field, ','); st.stop_id = stoi(field);
-        getline(ss, field, ','); st.stop_sequence = stoi(field);
-        trips[st.trip_id].push_back(st);
+        getline(ss, field, ','); st.tid = field;
+        getline(ss, field, ':'); st.arr.h = stoi(field);
+        getline(ss, field, ':'); st.arr.m = stoi(field);
+        getline(ss, field, ','); st.arr.s = stoi(field);
+        getline(ss, field, ':'); st.dep.h = stoi(field);
+        getline(ss, field, ':'); st.dep.m = stoi(field);
+        getline(ss, field, ','); st.dep.s = stoi(field);
+        getline(ss, field, ','); st.sid = stoi(field);
+        getline(ss, field, ','); st.seq = stoi(field);
+        trips[st.tid].push_back(st);
     }
 
-    for (auto const& [trip_id, schedule] : trips) {
-        for (const auto& stop_time : schedule) {
-            routes_at_stop[stop_time.stop_id].push_back(trip_id);
+    for (auto const& [tid, sched] : trips) {
+        for (const auto& st : sched) {
+            routes_at_stop[st.sid].push_back(tid);
         }
     }
 
@@ -64,11 +64,11 @@ void load_data(const string& dir,
         stringstream ss(line);
         string field;
         Transfer t;
-        getline(ss, field, ','); t.from_stop_id = stoi(field);
-        getline(ss, field, ','); t.to_stop_id = stoi(field);
+        getline(ss, field, ','); t.u = stoi(field);
+        getline(ss, field, ','); t.v = stoi(field);
         getline(ss, field, ',');
-        getline(ss, field, ','); t.duration_seconds = stoi(field);
-        transfers[t.from_stop_id].push_back(t);
+        getline(ss, field, ','); t.dur = stoi(field);
+        transfers[t.u].push_back(t);
     }
     cout << "GTFS data loaded." << endl;
 }
@@ -78,9 +78,9 @@ int main() {
     robin_hood::unordered_map<string, vector<StopTime>> trips;
     robin_hood::unordered_map<int, vector<Transfer>> transfers;
     robin_hood::unordered_map<int, vector<string>> routes_at_stop;
-    robin_hood::unordered_map<string, int> stop_name_to_id;
+    robin_hood::unordered_map<string, int> name_to_id;
 
-    load_data("data", stops, trips, transfers, routes_at_stop, stop_name_to_id);
+    load_data("text", stops, trips, transfers, routes_at_stop, name_to_id);
 
     httplib::Server svr;
     svr.set_mount_point("/", "./web");
@@ -90,58 +90,58 @@ int main() {
         });
 
     svr.Post("/calculate", [&](const httplib::Request& req, httplib::Response& res) {
-        string start_stop_name = req.get_param_value("start");
-        string end_stop_name = req.get_param_value("end");
-        Time start_time;
-        sscanf(req.get_param_value("time").c_str(), "%d:%d", &start_time.h, &start_time.m);
-        start_time.s = 0;
+        string start_name = req.get_param_value("start");
+        string end_name = req.get_param_value("end");
+        Time start_t;
+        sscanf(req.get_param_value("time").c_str(), "%d:%d", &start_t.h, &start_t.m);
+        start_t.s = 0;
 
-        if (stop_name_to_id.find(start_stop_name) == stop_name_to_id.end() ||
-            stop_name_to_id.find(end_stop_name) == stop_name_to_id.end()) {
+        if (name_to_id.find(start_name) == name_to_id.end() ||
+            name_to_id.find(end_name) == name_to_id.end()) {
             res.set_content("{\"error\":\"Invalid stop name\"}", "application/json");
             return;
         }
 
-        int start_node = stop_name_to_id[start_stop_name];
-        int end_node = stop_name_to_id[end_stop_name];
+        int src = name_to_id[start_name];
+        int dest = name_to_id[end_name];
 
-        robin_hood::unordered_map<int, vector<Journey>> final_profiles;
-        robin_hood::unordered_map<int, robin_hood::unordered_map<int, Journey>> predecessors;
-        runMultiCriteriaRaptor(start_node, end_node, start_time, stops, transfers, trips, routes_at_stop, final_profiles, predecessors);
+        robin_hood::unordered_map<int, vector<Journey>> profiles;
+        robin_hood::unordered_map<int, robin_hood::unordered_map<int, Journey>> preds;
+        run_raptor(src, dest, start_t, stops, transfers, trips, routes_at_stop, profiles, preds);
 
         string json = "{\"journeys\":[";
-        if (final_profiles.count(end_node)) {
-            bool first_journey = true;
-            for (const auto& j : final_profiles.at(end_node)) {
-                if (!first_journey) json += ",";
+        if (profiles.count(dest)) {
+            bool first_j = true;
+            for (const auto& j : profiles.at(dest)) {
+                if (!first_j) json += ",";
                 json += "{";
-                json += "\"arrival\":\"" + to_string(j.arrival_time.h) + ":" + to_string(j.arrival_time.m) + "\",";
-                json += "\"trips\":" + to_string(j.trips) + ",";
+                json += "\"arrival\":\"" + to_string(j.arr.h) + ":" + to_string(j.arr.m) + "\",";
+                json += "\"trips\":" + to_string(j.k) + ",";
                 json += "\"path\":[";
 
                 vector<pair<int, string>> path;
-                Journey current = j;
-                int current_stop = end_node;
+                Journey curr = j;
+                int curr_sid = dest;
 
-                while (current.from_stop_id != -1) {
-                    path.push_back({ current_stop, current.method });
-                    int prev_stop = current.from_stop_id;
-                    int prev_trips = current.method.find("Walk") != string::npos ? current.trips : current.trips - 1;
+                while (curr.from != -1) {
+                    path.push_back({ curr_sid, curr.meth });
+                    int prev_sid = curr.from;
+                    int prev_k = curr.meth.find("Walk") != string::npos ? curr.k : curr.k - 1;
 
-                    if (predecessors.count(prev_stop) && predecessors.at(prev_stop).count(prev_trips)) {
-                        current = predecessors.at(prev_stop).at(prev_trips);
-                        current_stop = prev_stop;
+                    if (preds.count(prev_sid) && preds.at(prev_sid).count(prev_k)) {
+                        curr = preds.at(prev_sid).at(prev_k);
+                        curr_sid = prev_sid;
                     }
                     else {
                         break;
                     }
                 }
-                path.push_back({ start_node, "Start" });
+                path.push_back({ src, "Start" });
                 reverse(path.begin(), path.end());
 
-                bool first_step = true;
+                bool first_s = true;
                 for (const auto& step : path) {
-                    if (!first_step) json += ",";
+                    if (!first_s) json += ",";
                     const auto& s = stops.at(step.first);
                     json += "{";
                     json += "\"stop_name\":\"" + s.name + "\",";
@@ -149,10 +149,10 @@ int main() {
                     json += "\"lon\":" + to_string(s.lon) + ",";
                     json += "\"method\":\"" + step.second + "\"";
                     json += "}";
-                    first_step = false;
+                    first_s = false;
                 }
                 json += "]}";
-                first_journey = false;
+                first_j = false;
             }
         }
         json += "]}";

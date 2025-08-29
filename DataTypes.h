@@ -12,41 +12,35 @@ struct Stop {
     double lat, lon;
 };
 
-struct StopTime {
-    std::string trip_id;
-    struct Time arrival_time, departure_time;
-    int stop_id, stop_sequence;
+struct Time {
+    int h, m, s;
+    int to_secs() const { return h * 3600 + m * 60 + s; }
+    static Time from_secs(int total_s) {
+        return { total_s / 3600, (total_s % 3600) / 60, total_s % 60 };
+    }
+    bool operator<=(const Time& other) const { return to_secs() <= other.to_secs(); }
+    bool operator<(const Time& other) const { return to_secs() < other.to_secs(); }
 };
 
-struct Trip {
-    std::vector<StopTime> schedule;
-    robin_hood::unordered_map<int, int> stop_to_idx; // Maps stop_id to its index
+struct StopTime {
+    std::string tid;
+    Time arr, dep;
+    int sid, seq;
 };
 
 struct Transfer {
-    int from_stop_id, to_stop_id, duration_seconds;
-};
-
-struct Time {
-    int h, m, s;
-    int toSeconds() const { return h * 3600 + m * 60 + s; }
-    static Time fromSeconds(int total_s) {
-        return { total_s / 3600, (total_s % 3600) / 60, total_s % 60 };
-    }
-    bool operator<=(const Time& other) const { return toSeconds() <= other.toSeconds(); }
-    bool operator<(const Time& other) const { return toSeconds() < other.toSeconds(); }
+    int u, v, dur;
 };
 
 struct Journey {
-    Time arrival_time;
-    int trips;
-    Time departure_time;
-    int from_stop_id;
-    std::string method;
+    Time arr, dep;
+    int k; // trips
+    int from;
+    std::string meth;
     bool operator<(const Journey& other) const {
-        if (arrival_time.toSeconds() != other.arrival_time.toSeconds())
-            return arrival_time < other.arrival_time;
-        return trips < other.trips;
+        if (arr.to_secs() != other.arr.to_secs())
+            return arr < other.arr;
+        return k < other.k;
     }
 };
 
