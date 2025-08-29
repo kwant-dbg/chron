@@ -1,0 +1,9 @@
+route_id,trip_id
+A,A_East_0800
+A,A_West_0810
+A,A_East_0900
+A,A_West_0910
+B,B_Clockwise_0800
+B,B_Clockwise_0830
+C,C_ToPark_0815
+C,C_ToPark_0845

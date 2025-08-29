@@ -1,0 +1,9 @@
+stop_id,stop_name
+1,Town Hall
+2,Market
+3,School
+4,Hospital
+5,Park
+6,Station
+7,West Suburb
+8,East Suburb

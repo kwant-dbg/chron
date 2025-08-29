@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporal Pathfinder</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="main-layout">
+        <div class="controls-panel">
+            <header><h1>Temporal Pathfinder 🚆</h1></header>
+            <main>
+                <div class="controls">
+                    <div class="autocomplete-container">
+                        <label for="start-stop-input">From:</label>
+                        <input type="text" id="start-stop-input" placeholder="Search for a stop...">
+                        <div class="autocomplete-suggestions" id="start-suggestions"></div>
+                    </div>
+
+                    <div class="autocomplete-container">
+                        <label for="end-stop-input">To:</label>
+                        <input type="text" id="end-stop-input" placeholder="Search for a stop...">
+                        <div class="autocomplete-suggestions" id="end-suggestions"></div>
+                    </div>
+
+                    <div class="select-group">
+                        <label for="start-time">Time (HH:MM:SS):</label>
+                        <input type="text" id="start-time" value="08:00:00">
+                    </div>
+                    <button id="find-route-btn">Find Route</button>
+                </div>
+                <div id="results-container">
+                    <p>Please select a route to begin.</p>
+                </div>
+            </main>
+        </div>
+        <div id="map"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
